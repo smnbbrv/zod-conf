@@ -1,0 +1,80 @@
+{
+  "name": "zod-conf",
+  "version": "0.0.0-development",
+  "description": "Type-safe configuration management with Zod schemas and environment variables",
+  "license": "MIT",
+  "author": "smnbbrv",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "zod",
+    "config",
+    "configuration",
+    "env",
+    "environment",
+    "schema",
+    "validation",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smnbbrv/zod-conf.git"
+  },
+  "bugs": {
+    "url": "https://github.com/smnbbrv/zod-conf/issues"
+  },
+  "homepage": "https://github.com/smnbbrv/zod-conf#readme",
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "prepublishOnly": "npm run build && npm run test && npm run lint",
+    "lint": "run-s lint:*",
+    "lint:eslint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:tsc": "tsc",
+    "test": "npx tsx --test --experimental-test-coverage 'src/**/*.test.ts'",
+    "prepare": "husky",
+    "semantic-release": "semantic-release"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/node": "^24.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "dotenv": "^17.2.2",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.3",
+    "husky": "^9.1.7",
+    "npm-run-all": "^4.1.5",
+    "semantic-release": "^24.2.7",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.38.0",
+    "zod": "^4.0.13"
+  }
+}

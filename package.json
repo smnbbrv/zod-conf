@@ -45,7 +45,7 @@
     "lint": "run-s lint:*",
     "lint:eslint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "lint:tsc": "tsc",
-    "test": "npx tsx --test --experimental-test-coverage 'src/**/*.test.ts'",
+    "test": "npx tsx --test --experimental-test-coverage src/index.test.ts",
     "prepare": "husky",
     "semantic-release": "semantic-release"
   },

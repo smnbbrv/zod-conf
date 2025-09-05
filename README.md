@@ -2,6 +2,8 @@
 
 Type-safe configuration management with Zod schemas and environment variables.
 
+Not affiliated with the official Zod library.
+
 ## Features
 
 - **Type-safe** - Full TypeScript support with Zod schema validation

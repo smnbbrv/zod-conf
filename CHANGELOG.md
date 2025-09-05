@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/smnbbrv/zod-conf/compare/v1.0.0...v1.0.1) (2025-09-05)
+
+
+### Bug Fixes
+
+* export ZodConfSchema ([3fb932d](https://github.com/smnbbrv/zod-conf/commit/3fb932d896274af665a9a31ce6db008ef9b9d578))
+
 # 1.0.0 (2025-09-05)
 
 

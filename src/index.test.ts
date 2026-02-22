@@ -442,4 +442,197 @@ test('zod-conf configuration parsing', async (t) => {
     strictEqual(optionalSchema.parse(undefined), undefined);
     strictEqual(nullableSchema.parse(null), null);
   });
+
+  await t.test('values loader: loads values from plain object', () => {
+    const schema = zc.define({
+      host: zc.env('HOST').string(),
+      port: zc.env('PORT').number(),
+      debug: zc.env('DEBUG').boolean(),
+    });
+
+    const config = schema.load({
+      values: { host: 'example.com', port: 8080, debug: true },
+    });
+
+    strictEqual(config.host, 'example.com');
+    strictEqual(config.port, 8080);
+    strictEqual(config.debug, true);
+  });
+
+  await t.test('values loader: handles nested objects', () => {
+    const schema = zc.define({
+      server: zc.object({
+        host: zc.env('HOST').string(),
+        port: zc.env('PORT').number(),
+        ssl: zc.object({
+          enabled: zc.env('SSL').boolean(),
+        }),
+      }),
+    });
+
+    const config = schema.load({
+      values: {
+        server: {
+          host: 'example.com',
+          port: 443,
+          ssl: { enabled: true },
+        },
+      },
+    });
+
+    deepStrictEqual(config, {
+      server: {
+        host: 'example.com',
+        port: 443,
+        ssl: { enabled: true },
+      },
+    });
+  });
+
+  await t.test('values loader: defaults apply when value is missing', () => {
+    const schema = zc.define({
+      host: zc.env('HOST').string().default('localhost'),
+      port: zc.env('PORT').number().default(3000),
+    });
+
+    const config = schema.load({ values: {} });
+
+    strictEqual(config.host, 'localhost');
+    strictEqual(config.port, 3000);
+  });
+
+  await t.test('env overrides values when both provide a value', () => {
+    const schema = zc.define({
+      host: zc.env('HOST').string(),
+      port: zc.env('PORT').number(),
+    });
+
+    const config = schema.load(
+      { values: { host: 'from-yaml', port: 9090 } },
+      { env: { HOST: 'from-env', PORT: '3000' } },
+    );
+
+    strictEqual(config.host, 'from-env');
+    strictEqual(config.port, 3000);
+  });
+
+  await t.test('values fills gaps when env is missing', () => {
+    const schema = zc.define({
+      host: zc.env('HOST').string(),
+      port: zc.env('PORT').number(),
+    });
+
+    const config = schema.load({ values: { host: 'from-yaml', port: 9090 } }, { env: { HOST: 'from-env' } });
+
+    strictEqual(config.host, 'from-env');
+    strictEqual(config.port, 9090);
+  });
+
+  await t.test('multiple values loaders with priority', () => {
+    const schema = zc.define({
+      host: zc.env('HOST').string(),
+      port: zc.env('PORT').number(),
+      debug: zc.env('DEBUG').boolean().default(false),
+    });
+
+    const config = schema.load(
+      { values: { host: 'default-host', port: 80, debug: false } },
+      { values: { host: 'yaml-host', port: 8080 } },
+      { env: { HOST: 'env-host' } },
+    );
+
+    strictEqual(config.host, 'env-host');
+    strictEqual(config.port, 8080);
+    strictEqual(config.debug, false);
+  });
+
+  await t.test('nested objects with mixed loaders', () => {
+    const schema = zc.define({
+      server: zc.object({
+        host: zc.env('HOST').string(),
+        port: zc.env('PORT').number(),
+      }),
+    });
+
+    const config = schema.load({ values: { server: { host: 'yaml-host', port: 9090 } } }, { env: { PORT: '3000' } });
+
+    strictEqual(config.server.host, 'yaml-host');
+    strictEqual(config.server.port, 3000);
+  });
+
+  await t.test('values loader with missing nested object falls back gracefully', () => {
+    const schema = zc.define({
+      server: zc.object({
+        host: zc.env('HOST').string().default('localhost'),
+      }),
+    });
+
+    const config = schema.load({ values: {} });
+
+    strictEqual(config.server.host, 'localhost');
+  });
+
+  await t.test('values loader: handles arrays', async () => {
+    const z = await import('zod');
+
+    const schema = zc.define({
+      origins: z.array(z.string()),
+    });
+
+    const config = schema.load({
+      values: { origins: ['https://a.com', 'https://b.com'] },
+    });
+
+    deepStrictEqual(config.origins, ['https://a.com', 'https://b.com']);
+  });
+
+  await t.test('values loader: handles arrays of objects', async () => {
+    const z = await import('zod');
+
+    const schema = zc.define({
+      servers: z.array(z.object({ host: z.string(), port: z.number() })),
+    });
+
+    const config = schema.load({
+      values: {
+        servers: [
+          { host: 'a.com', port: 3000 },
+          { host: 'b.com', port: 4000 },
+        ],
+      },
+    });
+
+    deepStrictEqual(config.servers, [
+      { host: 'a.com', port: 3000 },
+      { host: 'b.com', port: 4000 },
+    ]);
+  });
+
+  await t.test('values loader: arrays with env override for scalar fields', async () => {
+    const z = await import('zod');
+
+    const schema = zc.define({
+      host: zc.env('HOST').string(),
+      ports: z.array(z.number()),
+    });
+
+    const config = schema.load({ values: { host: 'from-yaml', ports: [3000, 4000] } }, { env: { HOST: 'from-env' } });
+
+    strictEqual(config.host, 'from-env');
+    deepStrictEqual(config.ports, [3000, 4000]);
+  });
+
+  await t.test('safeLoad works with multiple loaders', () => {
+    const schema = zc.define({
+      host: zc.env('HOST').string(),
+    });
+
+    const result = schema.safeLoad({ values: { host: 'from-yaml' } }, { env: { HOST: 'from-env' } });
+
+    strictEqual(result.success, true);
+
+    if (result.success) {
+      strictEqual(result.data.host, 'from-env');
+    }
+  });
 });

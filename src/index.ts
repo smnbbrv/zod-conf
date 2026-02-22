@@ -3,7 +3,7 @@ import { define } from './values/define.js';
 import { env } from './values/env.js';
 import { object } from './values/object.js';
 
-export { ZodConfSchema } from './values/define.js';
+export { ZodConfSchema, type Loader, type EnvLoader, type ValuesLoader } from './values/define.js';
 
 export const zc = {
   // core values

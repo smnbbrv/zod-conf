@@ -3,9 +3,9 @@ import { _envMetadata } from './env-metadata.js';
 
 type Env = Record<string, string | undefined>;
 
-export type LoadParams = {
-  env: Env;
-};
+export type EnvLoader = { env: Env; values?: never | undefined };
+export type ValuesLoader = { values: Record<string, unknown>; env?: never | undefined };
+export type Loader = EnvLoader | ValuesLoader;
 
 export class ZodConfSchema<T extends ZodRawShape> {
   constructor(
@@ -13,76 +13,100 @@ export class ZodConfSchema<T extends ZodRawShape> {
     private schema: ZodObject<T>,
   ) {}
 
-  private loadValue(shape: ZodRawShape, env: Env): any {
+  private resolveEnvValue(schema: ZodType, env: Env): unknown {
+    let currentSchema = schema;
+    let envKey: string | undefined;
+    let envType: string | undefined;
+
+    // traverse wrapped schemas to find metadata
+    while (currentSchema && !envKey) {
+      const metadata = _envMetadata.get(currentSchema);
+
+      if (metadata) {
+        // found metadata -> use it
+        envKey = metadata.key;
+        envType = metadata.type;
+        break;
+      }
+
+      // check if this is a wrapped schema (default, optional, etc.)
+      const def = (currentSchema as any)._def;
+
+      if (def?.innerType) {
+        // zod wrappers like optional, default, nullable, etc.
+        currentSchema = def.innerType;
+      } else if (def?.schema) {
+        // zod effects
+        currentSchema = def.schema;
+      } else {
+        // end of the chain, no metadata found
+        break;
+      }
+    }
+
+    if (!envKey) {
+      return undefined;
+    }
+
+    const value = env[envKey];
+
+    switch (envType) {
+      case 'string':
+        return value;
+      case 'number':
+        return value ? Number(value) : undefined;
+      case 'boolean':
+        return value === 'true' ? true : value === 'false' ? false : undefined;
+      case 'enum': {
+        const numValue = Number(value);
+
+        // guess if enum is number-based
+        if (value && !isNaN(numValue) && Number.isInteger(numValue)) {
+          return numValue;
+        }
+
+        return value;
+      }
+      default:
+        return undefined;
+    }
+  }
+
+  private loadValue(shape: ZodRawShape, loaders: Loader[]): any {
     const input: any = {};
 
     for (const key in shape) {
       const schema = shape[key];
 
       if (schema instanceof ZodObject) {
-        // for nested objects, recurse
-        input[key] = this.loadValue(schema.shape, env);
+        // for nested objects: drill into values loaders, pass env loaders as-is
+        const subLoaders = loaders.map((loader) => {
+          if ('values' in loader && loader.values) {
+            const nested = loader.values[key];
+
+            return { values: nested && typeof nested === 'object' ? nested : {} } as ValuesLoader;
+          }
+
+          return loader;
+        });
+
+        input[key] = this.loadValue(schema.shape, subLoaders);
       } else {
-        let currentSchema = schema as ZodType;
-        let envKey: string | undefined;
-        let envType: string | undefined;
+        // try each loader in order, later overrides earlier
+        for (const loader of loaders) {
+          if ('values' in loader && loader.values) {
+            const value = loader.values[key];
 
-        // traverse wrapped schemas to find metadata
-        while (currentSchema && !envKey) {
-          const metadata = _envMetadata.get(currentSchema);
-
-          if (metadata) {
-            // found metadata -> use it
-            envKey = metadata.key;
-            envType = metadata.type;
-            break;
-          }
-
-          // check if this is a wrapped schema (default, optional, etc.)
-          const def = (currentSchema as any)._def;
-
-          if (def?.innerType) {
-            // zod wrappers like optional, default, nullable, etc.
-            currentSchema = def.innerType;
-          } else if (def?.schema) {
-            // zod effects
-            currentSchema = def.schema;
-          } else {
-            // end of the chain, no metadata found
-            break;
-          }
-        }
-
-        if (envKey) {
-          const value = env[envKey];
-
-          switch (envType) {
-            case 'string':
+            if (value !== undefined) {
               input[key] = value;
-              break;
-            case 'number':
-              input[key] = value ? Number(value) : undefined;
-              break;
-            case 'boolean':
-              input[key] = value === 'true' ? true : value === 'false' ? false : undefined;
-              break;
-            case 'enum': {
-              const numValue = Number(value);
-
-              // guess if enum is number-based
-              if (value && !isNaN(numValue) && Number.isInteger(numValue)) {
-                input[key] = numValue;
-              } else {
-                input[key] = value;
-              }
-
-              break;
             }
-            default:
-              input[key] = undefined;
+          } else if ('env' in loader && loader.env) {
+            const value = this.resolveEnvValue(schema as ZodType, loader.env);
+
+            if (value !== undefined) {
+              input[key] = value;
+            }
           }
-        } else {
-          input[key] = undefined;
         }
       }
     }
@@ -91,21 +115,26 @@ export class ZodConfSchema<T extends ZodRawShape> {
   }
 
   /**
-   * Loads and validates configuration from environment variables.
+   * Loads and validates configuration from the provided loaders.
    * Throws a ZodError if validation fails.
    *
-   * @param input - Object containing environment variables
-   * @param input.env - Environment variables as key-value pairs
+   * Loaders are processed left-to-right; later loaders override earlier ones.
+   *
+   * @param loaders - One or more loaders: `{ env }` for environment variables, `{ values }` for plain objects
    * @returns Validated configuration object
    * @throws {ZodError} If validation fails
    *
    * @example
    * ```typescript
+   * // env only
    * const config = schema.load({ env: process.env });
+   *
+   * // yaml + env (env overrides yaml)
+   * const config = schema.load({ values: parsedYaml }, { env: process.env });
    * ```
    */
-  load(input: LoadParams): ZodInfer<ZodObject<T>> {
-    const result = this.safeLoad(input);
+  load(...loaders: [Loader, ...Loader[]]): ZodInfer<ZodObject<T>> {
+    const result = this.safeLoad(...loaders);
 
     if (!result.success) {
       throw result.error;
@@ -118,13 +147,14 @@ export class ZodConfSchema<T extends ZodRawShape> {
    * Safely loads and validates configuration without throwing.
    * Returns a result object with either success or error.
    *
-   * @param input - Object containing environment variables
-   * @param input.env - Environment variables as key-value pairs
+   * Loaders are processed left-to-right; later loaders override earlier ones.
+   *
+   * @param loaders - One or more loaders: `{ env }` for environment variables, `{ values }` for plain objects
    * @returns SafeParseReturnType with either { success: true, data } or { success: false, error }
    *
    * @example
    * ```typescript
-   * const result = schema.safeLoad({ env: process.env });
+   * const result = schema.safeLoad({ values: yamlConfig }, { env: process.env });
    *
    * if (result.success) {
    *   console.log('Config:', result.data);
@@ -133,8 +163,8 @@ export class ZodConfSchema<T extends ZodRawShape> {
    * }
    * ```
    */
-  safeLoad(input: LoadParams) {
-    const value = this.loadValue(this.shape, input.env);
+  safeLoad(...loaders: [Loader, ...Loader[]]) {
+    const value = this.loadValue(this.shape, loaders);
 
     return this.schema.safeParse(value);
   }
@@ -159,14 +189,11 @@ export class ZodConfSchema<T extends ZodRawShape> {
  *   }),
  * });
  *
- * // load configuration from environment
+ * // load from env only
  * const config = schema.load({ env: process.env });
  *
- * // safe load without throwing
- * const result = schema.safeLoad({ env: process.env });
- * if (result.success) {
- *   console.log(result.data);
- * }
+ * // load from yaml + env (env overrides yaml)
+ * const config = schema.load({ values: parsedYaml }, { env: process.env });
  * ```
  */
 export const define = <T extends ZodRawShape>(shape: T): ZodConfSchema<T> => {

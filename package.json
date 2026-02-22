@@ -42,9 +42,9 @@
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build && npm run test && npm run lint",
-    "lint": "run-s lint:*",
-    "lint:eslint": "eslint . --report-unused-disable-directives --max-warnings 0",
-    "lint:tsc": "tsc",
+    "validate": "run-s lint typecheck test",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc",
     "test": "npx tsx --test --experimental-test-coverage src/index.test.ts",
     "prepare": "husky",
     "semantic-release": "semantic-release"

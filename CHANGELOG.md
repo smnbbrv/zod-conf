@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/smnbbrv/zod-conf/compare/v1.0.2...v1.0.3) (2026-02-03)
+
+
+### Bug Fixes
+
+* update license ([8c4d871](https://github.com/smnbbrv/zod-conf/commit/8c4d87140f38b1633c9d7603a88ba5f9ea30b99f))
+
 ## [1.0.2](https://github.com/smnbbrv/zod-conf/compare/v1.0.1...v1.0.2) (2025-09-05)
 
 

@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/smnbbrv/zod-conf/compare/v1.0.3...v1.1.0) (2026-02-22)
+
+
+### Features
+
+* add yaml support ([901e9eb](https://github.com/smnbbrv/zod-conf/commit/901e9ebaf68e276aa7ac380340a7b804f06f6c46))
+
 ## [1.0.3](https://github.com/smnbbrv/zod-conf/compare/v1.0.2...v1.0.3) (2026-02-03)
 
 

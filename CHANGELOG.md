@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/smnbbrv/zod-conf/compare/v1.1.0...v1.1.1) (2026-02-23)
+
+
+### Bug Fixes
+
+* disable sourcemaps ([545516c](https://github.com/smnbbrv/zod-conf/commit/545516cd8d6f3522464844d57c5c4d2f50d37c5e))
+
 # [1.1.0](https://github.com/smnbbrv/zod-conf/compare/v1.0.3...v1.1.0) (2026-02-22)
 
 
